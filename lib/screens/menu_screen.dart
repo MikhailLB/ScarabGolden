@@ -124,7 +124,7 @@ class MenuScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'v1.0.1',
+                    'v1.0.0',
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ],

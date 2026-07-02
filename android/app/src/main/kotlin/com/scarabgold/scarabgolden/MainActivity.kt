@@ -1,4 +1,4 @@
-package com.siegeburn.infernstorm
+package com.scarabgold.scarabgolden
 
 import io.flutter.embedding.android.FlutterActivity
 

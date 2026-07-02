@@ -3,6 +3,7 @@ import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -13,7 +14,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.siegeburn.infernstorm"
+    namespace = "com.scarabgold.scarabgolden"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -23,7 +24,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.siegeburn.infernstorm"
+        applicationId = "com.scarabgold.scarabgolden"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -43,11 +44,10 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (keystorePropertiesFile.exists()) {
+            signingConfig = if (keystorePropertiesFile.exists())
                 signingConfigs.getByName("release")
-            } else {
+            else
                 signingConfigs.getByName("debug")
-            }
         }
     }
 }
