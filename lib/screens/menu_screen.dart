@@ -9,9 +9,8 @@ class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
 
   static const _privacyUrl =
-      'https://youtu.be/j-iheFkstFQ?si=nlDcR7vt-Wc1kXHQ';
-  static const _supportUrl =
-      'https://youtu.be/j-iheFkstFQ?si=nlDcR7vt-Wc1kXHQ';
+      'https://scarabgolden.com/privacy-policy.html';
+  static const _supportUrl = 'https://scarabgolden.com/support.html';
 
   @override
   Widget build(BuildContext context) {

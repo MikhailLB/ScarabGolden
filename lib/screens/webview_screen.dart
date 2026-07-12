@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../theme.dart';
@@ -27,7 +28,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(AppColors.darkNavy)
+      ..setBackgroundColor(Colors.white)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
@@ -52,16 +53,32 @@ class _WebPageScreenState extends State<WebPageScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.darkNavy,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: AppColors.darkNavy,
-        foregroundColor: AppColors.goldLight,
-        title: Text(widget.title),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 1,
+        surfaceTintColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.white,
+          statusBarIconBrightness: Brightness.dark,
+        ),
+        title: Text(
+          widget.title,
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: Stack(
         children: [
           if (!_hasError)
-            WebViewWidget(controller: _controller)
+            Container(
+              color: Colors.white,
+              child: WebViewWidget(controller: _controller),
+            )
           else
             _NoConnection(onRetry: () {
               setState(() {
@@ -72,7 +89,7 @@ class _WebPageScreenState extends State<WebPageScreen> {
             }),
           if (_loading && !_hasError)
             const Center(
-              child: CircularProgressIndicator(color: AppColors.gold),
+              child: CircularProgressIndicator(color: Colors.black),
             ),
         ],
       ),
