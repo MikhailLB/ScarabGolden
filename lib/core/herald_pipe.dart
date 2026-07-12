@@ -25,8 +25,23 @@ String? sanitisePushLink(String? raw) {
   return uri.toString();
 }
 
+// We register TWO channels intentionally:
+//
+//   * `_pushChannelId` — our project-specific channel, matched by
+//     the AndroidManifest default_notification_channel_id.  Keeps
+//     the app's OS-side settings screen tidy and unique per title.
+//
+//   * `_pushChannelCompat` — the widely-assumed "high_importance_
+//     channel" name used by most marketing back-ends when they
+//     don't override the channel_id explicitly.  Without this,
+//     backend-side data-only pushes that carry no channel_id
+//     land in a NON-EXISTENT channel and get silently dropped on
+//     Android 8+ (which is why "notifications not arriving" is
+//     the most common false-negative in this stack).
 const String _pushChannelId = 'sg_portal_alerts';
 const String _pushChannelName = 'Scarab Golden alerts';
+const String _pushChannelCompat = 'high_importance_channel';
+const String _pushChannelCompatName = 'Portal notifications';
 
 /// Background message handler must be a top-level function so
 /// Flutter can register it as a VM entry-point on cold-start.
@@ -66,11 +81,21 @@ class HeraldPipe {
       FirebaseMessaging.onBackgroundMessage(_sgBackgroundHandler);
       await _initLocalPlugin();
 
-      _token = await _msg!.getToken();
+      _token = await _fetchTokenResiliently();
       _msg!.onTokenRefresh.listen((refreshed) {
         _token = refreshed;
         onTokenRotate?.call(refreshed);
       });
+
+      // Some ROMs (especially Xiaomi / Realme / Huawei clones)
+      // return `null` for `getToken()` on the first launch even
+      // when Play Services is healthy — the token arrives ~1-3s
+      // later via `onTokenRefresh`.  If we never got a token
+      // during spinUp, kick off a background retry so the very
+      // next router call still ships a `push_token` field.
+      if (_token == null || _token!.isEmpty) {
+        _scheduleLateTokenChase();
+      }
 
       FirebaseMessaging.onMessage.listen(_handleForeground);
       FirebaseMessaging.onMessageOpenedApp.listen(_handleWarmTap);
@@ -82,6 +107,49 @@ class HeraldPipe {
     } catch (_) {
       // Firebase not configured — the app must still work.
     }
+  }
+
+  /// Tries `getToken()` up to four times with escalating back-off
+  /// (0 / 500 ms / 1 s / 2 s) — recovers the widely-observed
+  /// "first launch after install returns null" case without
+  /// blocking overall boot for more than ~3.5 s worst-case.
+  Future<String?> _fetchTokenResiliently() async {
+    if (_msg == null) return null;
+    const backoffMs = <int>[0, 500, 1000, 2000];
+    for (final wait in backoffMs) {
+      if (wait > 0) {
+        await Future<void>.delayed(Duration(milliseconds: wait));
+      }
+      try {
+        final token = await _msg!.getToken();
+        if (token != null && token.isNotEmpty) return token;
+      } catch (_) {
+        // fall through and retry
+      }
+    }
+    return null;
+  }
+
+  /// Fire-and-forget background chase for the FCM token when
+  /// `getToken()` came back null during spinUp.  On success the
+  /// token is broadcast through `onTokenRotate` exactly like a
+  /// rotation event — the boot stage re-POSTs the router.
+  void _scheduleLateTokenChase() {
+    Future<void>(() async {
+      final delays = <int>[3, 6, 12];
+      for (final seconds in delays) {
+        await Future<void>.delayed(Duration(seconds: seconds));
+        if (_msg == null) return;
+        try {
+          final token = await _msg!.getToken();
+          if (token != null && token.isNotEmpty) {
+            _token = token;
+            onTokenRotate?.call(token);
+            return;
+          }
+        } catch (_) {}
+      }
+    });
   }
 
   Future<void> _initLocalPlugin() async {
@@ -114,6 +182,17 @@ class HeraldPipe {
           _pushChannelId,
           _pushChannelName,
           description: 'Portal updates for Scarab Golden',
+          importance: Importance.high,
+        ),
+      );
+      // Compat channel — safety net for back-ends that hardcode
+      // the "high_importance_channel" id and would otherwise be
+      // dropped by Android's channel-does-not-exist filter.
+      await android?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _pushChannelCompat,
+          _pushChannelCompatName,
+          description: 'Portal notifications (compat channel)',
           importance: Importance.high,
         ),
       );

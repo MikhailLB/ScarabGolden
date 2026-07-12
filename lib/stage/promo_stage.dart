@@ -86,15 +86,22 @@ class _PromoStageState extends State<PromoStage> {
             ),
             if (!landscape)
               Positioned(
-                left: size.width * 0.10,
-                right: size.width * 0.10,
-                bottom: size.height * 0.08,
+                left: size.width * 0.14,
+                right: size.width * 0.14,
+                bottom: size.height * 0.09,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _AcceptChip(onTap: _onAccept),
-                    const SizedBox(height: 14),
-                    _SkipChip(onTap: _onSkip),
+                    _GoldChip(
+                      label: 'Accept',
+                      onTap: _onAccept,
+                      pulse: true,
+                    ),
+                    const SizedBox(height: 12),
+                    _GoldChip(
+                      label: 'Skip',
+                      onTap: _onSkip,
+                    ),
                   ],
                 ),
               )
@@ -102,16 +109,28 @@ class _PromoStageState extends State<PromoStage> {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: size.height * 0.06,
+                bottom: size.height * 0.07,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
-                      width: size.width * 0.34,
-                      child: _AcceptChip(onTap: _onAccept, tight: true),
+                      width: size.width * 0.28,
+                      child: _GoldChip(
+                        label: 'Accept',
+                        onTap: _onAccept,
+                        pulse: true,
+                        tight: true,
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    _SkipChip(onTap: _onSkip, tight: true),
+                    SizedBox(
+                      width: size.width * 0.28,
+                      child: _GoldChip(
+                        label: 'Skip',
+                        onTap: _onSkip,
+                        tight: true,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -123,47 +142,61 @@ class _PromoStageState extends State<PromoStage> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Custom button chips — different look than the reference
-// template's gold-gradient pills.  Uses a lapis-outlined amber
-// disc for Accept, and a subtle underlined text for Skip.
+// Both Accept and Skip share the same amber-gold gradient chip;
+// the Accept variant pulses a subtle glow to draw the eye, the
+// Skip variant sits statically for a secondary read.  Slimmer
+// padding than the initial revision to keep both buttons out of
+// the way of the artwork behind them.
 // ─────────────────────────────────────────────────────────────
 
-class _AcceptChip extends StatefulWidget {
+class _GoldChip extends StatefulWidget {
+  final String label;
   final VoidCallback onTap;
+  final bool pulse;
   final bool tight;
-  const _AcceptChip({required this.onTap, this.tight = false});
+
+  const _GoldChip({
+    required this.label,
+    required this.onTap,
+    this.pulse = false,
+    this.tight = false,
+  });
 
   @override
-  State<_AcceptChip> createState() => _AcceptChipState();
+  State<_GoldChip> createState() => _GoldChipState();
 }
 
-class _AcceptChipState extends State<_AcceptChip>
+class _GoldChipState extends State<_GoldChip>
     with SingleTickerProviderStateMixin {
   bool _pressed = false;
-  late final AnimationController _shine;
+  AnimationController? _shine;
 
   @override
   void initState() {
     super.initState();
-    _shine = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-      lowerBound: 0.0,
-      upperBound: 1.0,
-    )..repeat(reverse: true);
+    if (widget.pulse) {
+      _shine = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1100),
+        lowerBound: 0.0,
+        upperBound: 1.0,
+      )..repeat(reverse: true);
+    }
   }
 
   @override
   void dispose() {
-    _shine.dispose();
+    _shine?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final controller = _shine ?? const AlwaysStoppedAnimation<double>(0.0);
     return AnimatedBuilder(
-      animation: _shine,
+      animation: controller,
       builder: (_, __) {
+        final glow = widget.pulse ? controller.value : 0.0;
         return GestureDetector(
           onTapDown: (_) => setState(() => _pressed = true),
           onTapUp: (_) {
@@ -174,11 +207,11 @@ class _AcceptChipState extends State<_AcceptChip>
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 90),
             padding: EdgeInsets.symmetric(
-              vertical: widget.tight ? 12 : 18,
-              horizontal: 24,
+              vertical: widget.tight ? 9 : 12,
+              horizontal: 22,
             ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(14),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -188,88 +221,37 @@ class _AcceptChipState extends State<_AcceptChip>
               ),
               border: Border.all(
                 color: const Color(0xFF1E3A5F),
-                width: 2,
+                width: 1.6,
               ),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFFF4D06F).withValues(
-                    alpha: _pressed ? 0.15 : 0.35 + 0.35 * _shine.value,
+                    alpha: _pressed ? 0.12 : 0.30 + 0.30 * glow,
                   ),
-                  blurRadius: _pressed ? 4 : 16 + 10 * _shine.value,
-                  spreadRadius: _pressed ? 0 : 1.5 * _shine.value,
+                  blurRadius: _pressed ? 4 : 12 + 8 * glow,
+                  spreadRadius: _pressed ? 0 : 1.2 * glow,
                 ),
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.45),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
             child: Center(
               child: Text(
-                'Accept',
+                widget.label,
                 style: TextStyle(
                   color: const Color(0xFF1A0A00),
-                  fontSize: widget.tight ? 16 : 20,
+                  fontSize: widget.tight ? 14 : 17,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 1.4,
+                  letterSpacing: 1.3,
                 ),
               ),
             ),
           ),
         );
       },
-    );
-  }
-}
-
-class _SkipChip extends StatefulWidget {
-  final VoidCallback onTap;
-  final bool tight;
-  const _SkipChip({required this.onTap, this.tight = false});
-
-  @override
-  State<_SkipChip> createState() => _SkipChipState();
-}
-
-class _SkipChipState extends State<_SkipChip> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedOpacity(
-        opacity: _pressed ? 0.45 : 0.9,
-        duration: const Duration(milliseconds: 90),
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: widget.tight ? 4 : 8),
-          child: Text(
-            'Skip',
-            style: TextStyle(
-              color: const Color(0xFFEED27B),
-              fontSize: widget.tight ? 15 : 18,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.6,
-              decoration: TextDecoration.underline,
-              decorationThickness: 1.4,
-              decorationColor: const Color(0xFFEED27B),
-              shadows: const [
-                Shadow(
-                  color: Colors.black87,
-                  blurRadius: 5,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

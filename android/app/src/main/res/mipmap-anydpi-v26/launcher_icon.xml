@@ -1,9 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive launcher icon for API 26+.
+
+    Deliberately hand-written (do NOT re-run flutter_launcher_icons
+    against this file — its default template drops the foreground
+    edge-to-edge into the 108dp canvas and the circular Pixel mask
+    then eats every corner of the pharaoh crown).
+
+    The 14 % inset keeps the shield safely inside the standard
+    72dp visible zone under every OEM mask (circle, squircle,
+    teardrop, rounded-square).  Bump to 17–19 % if any OEM keeps
+    clipping, drop to 10–12 % if the art looks too small.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-  <background android:drawable="@color/ic_launcher_background"/>
-  <foreground>
-      <inset
-          android:drawable="@drawable/ic_launcher_foreground"
-          android:inset="0%" />
-  </foreground>
+    <background android:drawable="@color/launch_bg"/>
+    <foreground>
+        <inset
+            android:drawable="@drawable/sg_pharaoh_art"
+            android:inset="14%"/>
+    </foreground>
+    <!--
+        No <monochrome> layer: the source art is a full-colour
+        photograph and would be flattened into an unrecognisable
+        silhouette by the Android 13+ themed-icons feature.
+    -->
 </adaptive-icon>

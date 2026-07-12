@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#0B1A3A</color>
+    <!--
+        launch_bg — matches the darkest corner tone of assets/icon.jpg
+        (sampled #100009).  The Android 12+ splash background and the
+        adaptive-icon background both point at this colour so the
+        transition from launcher tap → splash → running app is
+        visually seamless across Pixel-circle, squircle and teardrop
+        launcher masks.
+    -->
+    <color name="launch_bg">#100009</color>
 </resources>

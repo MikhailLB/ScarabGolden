@@ -43,15 +43,35 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.1
 
-flutter_launcher_icons:
-  android: "launcher_icon"
-  ios: false
-  image_path: "assets/icon.jpg"
-  min_sdk_android: 21
-  adaptive_icon_background: "#0B1A3A"
-  adaptive_icon_foreground: "assets/icon.jpg"
-  adaptive_icon_foreground_inset: 0
-  remove_alpha_ios: true
+# ┌───────────────────────────────────────────────────────────────┐
+# │ flutter_launcher_icons is intentionally NOT re-runnable here.  │
+# │                                                                │
+# │ The adaptive-icon XML in                                       │
+# │   android/app/src/main/res/mipmap-anydpi-v26/launcher_icon.xml │
+# │   android/app/src/main/res/drawable-anydpi-v26/                │
+# │                                    ic_splash_logo.xml          │
+# │ has been hand-tuned so the pharaoh art (sg_pharaoh_art.png)    │
+# │ survives every OEM launcher mask AND matches the Android 12+   │
+# │ splash icon 1:1.  The FLI generator would overwrite those XML  │
+# │ files with a 0% inset edge-to-edge foreground, which then      │
+# │ gets clipped by the Pixel-circle mask.                         │
+# │                                                                │
+# │ If you MUST regenerate the density PNGs (e.g. changed the      │
+# │ source art):                                                   │
+# │   1. Uncomment the flutter_launcher_icons block below.         │
+# │   2. `dart run flutter_launcher_icons`.                        │
+# │   3. Rename drawable-*/ic_launcher_foreground.png              │
+# │      → drawable-*/sg_pharaoh_art.png.                          │
+# │   4. Re-apply the hand-written mipmap / drawable XML files.    │
+# └───────────────────────────────────────────────────────────────┘
+# flutter_launcher_icons:
+#   android: "launcher_icon"
+#   ios: false
+#   image_path: "assets/icon.jpg"
+#   min_sdk_android: 21
+#   adaptive_icon_background: "#100009"
+#   adaptive_icon_foreground: "assets/icon.jpg"
+#   remove_alpha_ios: true
 
 flutter:
   uses-material-design: true

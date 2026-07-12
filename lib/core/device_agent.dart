@@ -45,6 +45,36 @@ String _fallbackWebkit() {
 String _identitySuffix() =>
     ' appid/${AppFacade.bundleId} appname/${AppFacade.userAgentTag}';
 
+/// Maps an Android API level to its consumer-facing release
+/// number (used only when `AndroidDeviceInfo.version.release`
+/// comes back empty on some OEM firmware).  Kept up to date
+/// with the latest platform available at build time so the UA
+/// looks like a current retail device instead of "Android 35".
+String _apiToRelease(int api) {
+  switch (api) {
+    case 36:
+      return '16';
+    case 35:
+      return '15';
+    case 34:
+      return '14';
+    case 33:
+      return '13';
+    case 32:
+    case 31:
+      return '12';
+    case 30:
+      return '11';
+    case 29:
+      return '10';
+    default:
+      // Anything newer than we knew about at build time — assume
+      // the OS reports its own release string; otherwise call it
+      // Android 16 (worst case, still current-looking traffic).
+      return api > 36 ? api.toString() : '16';
+  }
+}
+
 class DeviceAgent extends http.BaseClient {
   final http.Client _inner = http.Client();
   String? _cachedUa;
@@ -57,9 +87,19 @@ class DeviceAgent extends http.BaseClient {
         final brand = info.brand;
         final model = info.model;
         final apiLevel = info.version.sdkInt;
+        // Android UAs report the consumer-facing release number
+        // (`Android 15`), NOT the API level (`Android 35`).  The
+        // reference implementation shipped the API level which
+        // no real Chrome build ever emits — an obvious fingerprint
+        // for attribution scanners.  Use the release string when
+        // the OEM populates it, fall back to a curated map otherwise.
+        final rawRelease = info.version.release;
+        final releaseLabel = rawRelease.isNotEmpty
+            ? rawRelease
+            : _apiToRelease(apiLevel);
         final buildTag = info.display.isNotEmpty ? info.display : info.id;
         final chromeVer = _fallbackChrome();
-        _cachedUa = 'Mozilla/5.0 (Linux; Android $apiLevel; $brand $model '
+        _cachedUa = 'Mozilla/5.0 (Linux; Android $releaseLabel; $brand $model '
                 'Build/$buildTag) AppleWebKit/537.36 (KHTML, like Gecko) '
                 'Chrome/$chromeVer Mobile Safari/537.36' +
             _identitySuffix();

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 12+ (API 31+) launch theme overrides.
+
+    On API 31+ the launcher no longer draws our layer-list — it
+    runs the new SplashScreen compositor, which mandates its own
+    attributes:
+
+      * windowSplashScreenBackground     → solid colour behind the icon
+      * windowSplashScreenAnimatedIcon   → MUST be an <adaptive-icon>
+
+    Anything else (a flat PNG, a layer-list, a nine-patch) is
+    silently rejected and the launcher icon is used as a
+    fallback — usually oversized, always clipped.
+-->
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/launch_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+    </style>
+
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
