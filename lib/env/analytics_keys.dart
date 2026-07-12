@@ -7,9 +7,14 @@ import '../crypt/cipher.dart';
 // the operator ahead of the first store submission and encoded
 // via `dart run tool/gen_bytes.dart`.
 
-const List<int> _trkKey = <int>[];
+const List<int> _trkKey = <int>[
+  248, 201, 0, 197, 225, 134, 109, 237, 42, 129, 65, 155,
+  200, 109, 44, 193, 240, 82, 123, 140, 223, 114,
+];
 
-const List<int> _msgProjectNo = <int>[];
+const List<int> _msgProjectNo = <int>[
+  140, 169, 109, 173, 146, 140, 32, 183, 101, 192, 6, 252,
+];
 
 const List<int> _gcdHost = <int>[
   210, 229, 46, 229, 208, 133, 55, 171, 58, 148, 83, 190, 238, 50, 119, 241,

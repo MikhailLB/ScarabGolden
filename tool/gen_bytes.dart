@@ -51,10 +51,10 @@ const Map<String, String> plainValues = {
   'CFG_PATH': '/config.php',
 
   // ── AppsFlyer ──
-  'TRK_KEY': '',
+  'TRK_KEY': 'BXZPB9uiwvvVB4uQ9Tfafn',
 
   // ── Firebase / Google Cloud Messaging ──
-  'MSG_PROJECT_NO': '',
+  'MSG_PROJECT_NO': '687813838711',
 
   // ── GCD (attribution fallback) ──
   'GCD_HOST': 'https://gcdsdk.appsflyer.com',
