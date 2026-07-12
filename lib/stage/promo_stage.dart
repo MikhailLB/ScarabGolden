@@ -106,15 +106,23 @@ class _PromoStageState extends State<PromoStage> {
                 ),
               )
             else
+              // Landscape: place Accept + Skip side-by-side on the
+              // baseline the previous Skip button occupied (that Y
+              // matches the button plates painted into
+              // assets/Notifications/notif_hor.webp).  Each chip is
+              // half its old width, so together they still occupy
+              // roughly the same footprint as the previous stacked
+              // column, but sit lower and out of the artwork.
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: size.height * 0.07,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.max,
                   children: [
                     SizedBox(
-                      width: size.width * 0.28,
+                      width: size.width * 0.14,
                       child: _GoldChip(
                         label: 'Accept',
                         onTap: _onAccept,
@@ -122,9 +130,9 @@ class _PromoStageState extends State<PromoStage> {
                         tight: true,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(width: 14),
                     SizedBox(
-                      width: size.width * 0.28,
+                      width: size.width * 0.14,
                       child: _GoldChip(
                         label: 'Skip',
                         onTap: _onSkip,
