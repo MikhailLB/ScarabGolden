@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// No-Wi-Fi screen (the "tempest").  Uses the Egyptian sand-storm
 /// artwork already shipped in `assets/nowifi/` and floats a
-/// Retry button over it.
+/// Retry button over it.  The screen unlocks device rotation so
+/// the horizontal `nowifi_hor.webp` is used when the user turns
+/// the device sideways; whichever screen pushes this stage next
+/// re-applies its own orientation preference.
 class TempestStage extends StatefulWidget {
   final WidgetBuilder retryBuilder;
 
@@ -21,6 +25,17 @@ class _TempestStageState extends State<TempestStage>
   @override
   void initState() {
     super.initState();
+    // Unlock rotation for the offline screen — the artwork ships
+    // with a dedicated landscape variant and we want the user to
+    // be able to hold the phone whichever way they prefer while
+    // troubleshooting connectivity.
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
     _pressCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 130),
@@ -58,6 +73,13 @@ class _TempestStageState extends State<TempestStage>
         ? 'assets/nowifi/nowifi_hor.webp'
         : 'assets/nowifi/nowifi_vert.webp';
 
+    // Landscape gets a noticeably slimmer button (both narrower
+    // and shorter) — the horizontal artwork already fills more
+    // of the frame, so a large gold pill fought the composition.
+    final horizontalMargin =
+        landscape ? size.width * 0.34 : size.width * 0.10;
+    final buttonHeight = landscape ? 46.0 : 60.0;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0B1A3A),
       body: SizedBox.expand(
@@ -67,18 +89,20 @@ class _TempestStageState extends State<TempestStage>
             Image.asset(
               bg,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
+              errorBuilder: (_, _, _) =>
                   Container(color: const Color(0xFF0B1A3A)),
             ),
             Positioned(
-              left: landscape ? size.width * 0.25 : size.width * 0.10,
-              right: landscape ? size.width * 0.25 : size.width * 0.10,
-              bottom: landscape ? size.height * 0.08 : size.height * 0.09,
+              left: horizontalMargin,
+              right: horizontalMargin,
+              bottom: landscape ? size.height * 0.09 : size.height * 0.09,
               child: ScaleTransition(
                 scale: _pressScale,
                 child: _RetryPlate(
                   reconnecting: _reconnecting,
                   onTap: _onRetry,
+                  height: buttonHeight,
+                  compact: landscape,
                 ),
               ),
             ),
@@ -92,20 +116,27 @@ class _TempestStageState extends State<TempestStage>
 class _RetryPlate extends StatelessWidget {
   final bool reconnecting;
   final VoidCallback onTap;
+  final double height;
+  final bool compact;
 
-  const _RetryPlate({required this.reconnecting, required this.onTap});
+  const _RetryPlate({
+    required this.reconnecting,
+    required this.onTap,
+    required this.height,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(compact ? 18 : 22),
         onTap: reconnecting ? null : onTap,
         child: Container(
-          height: 60,
+          height: height,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(compact ? 18 : 22),
             gradient: reconnecting
                 ? null
                 : const LinearGradient(
@@ -118,47 +149,47 @@ class _RetryPlate extends StatelessWidget {
                 : null,
             border: Border.all(
               color: const Color(0xFFEED27B),
-              width: 1.6,
+              width: compact ? 1.3 : 1.6,
             ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
+                blurRadius: compact ? 8 : 12,
+                offset: Offset(0, compact ? 4 : 6),
               ),
             ],
           ),
           alignment: Alignment.center,
           child: reconnecting
-              ? const Row(
+              ? Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
+                      width: compact ? 16 : 20,
+                      height: compact ? 16 : 20,
+                      child: const CircularProgressIndicator(
                         strokeWidth: 2.5,
                         valueColor: AlwaysStoppedAnimation<Color>(
                             Color(0xFFF4D06F)),
                       ),
                     ),
-                    SizedBox(width: 12),
+                    SizedBox(width: compact ? 8 : 12),
                     Text(
                       'Reconnecting…',
                       style: TextStyle(
-                        color: Color(0xFFF4D06F),
-                        fontSize: 17,
+                        color: const Color(0xFFF4D06F),
+                        fontSize: compact ? 14 : 17,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.6,
                       ),
                     ),
                   ],
                 )
-              : const Text(
+              : Text(
                   'Try again',
                   style: TextStyle(
-                    color: Color(0xFF1A0A00),
-                    fontSize: 18,
+                    color: const Color(0xFF1A0A00),
+                    fontSize: compact ? 15 : 18,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
                   ),
