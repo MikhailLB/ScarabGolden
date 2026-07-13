@@ -87,9 +87,11 @@ class _TempestStageState extends State<TempestStage>
     // Landscape gets a noticeably slimmer button (both narrower
     // and shorter) — the horizontal artwork already fills more
     // of the frame, so a large gold pill fought the composition.
+    // Second iteration: tightened the margins another notch so
+    // the button sits inside the plate painted into nowifi_hor.
     final horizontalMargin =
-        landscape ? size.width * 0.34 : size.width * 0.10;
-    final buttonHeight = landscape ? 46.0 : 60.0;
+        landscape ? size.width * 0.38 : size.width * 0.10;
+    final buttonHeight = landscape ? 40.0 : 60.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1A3A),
@@ -176,20 +178,20 @@ class _RetryPlate extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
-                      width: compact ? 16 : 20,
-                      height: compact ? 16 : 20,
+                      width: compact ? 14 : 20,
+                      height: compact ? 14 : 20,
                       child: const CircularProgressIndicator(
-                        strokeWidth: 2.5,
+                        strokeWidth: 2.2,
                         valueColor: AlwaysStoppedAnimation<Color>(
                             Color(0xFFF4D06F)),
                       ),
                     ),
-                    SizedBox(width: compact ? 8 : 12),
+                    SizedBox(width: compact ? 7 : 12),
                     Text(
                       'Reconnecting…',
                       style: TextStyle(
                         color: const Color(0xFFF4D06F),
-                        fontSize: compact ? 14 : 17,
+                        fontSize: compact ? 13 : 17,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.6,
                       ),
@@ -200,9 +202,9 @@ class _RetryPlate extends StatelessWidget {
                   'Try again',
                   style: TextStyle(
                     color: const Color(0xFF1A0A00),
-                    fontSize: compact ? 15 : 18,
+                    fontSize: compact ? 13 : 18,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
+                    letterSpacing: 0.7,
                   ),
                 ),
         ),
