@@ -384,9 +384,12 @@ class _PortalStageState extends State<PortalStage>
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
     );
-    SystemChrome.setPreferredOrientations(const [
-      DeviceOrientation.portraitUp,
-    ]);
+    // NOTE: intentionally do NOT re-lock orientation here.
+    // dispose() runs AFTER the next route's initState has already
+    // applied its own preference (e.g. TempestStage unlocks all
+    // four orientations) — clobbering that here would silently
+    // re-lock the No-Wi-Fi screen to portrait.  The arena
+    // LoadingScreen locks portrait itself on entry.
     super.dispose();
   }
 

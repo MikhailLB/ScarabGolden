@@ -28,13 +28,15 @@ class _TempestStageState extends State<TempestStage>
     // Unlock rotation for the offline screen — the artwork ships
     // with a dedicated landscape variant and we want the user to
     // be able to hold the phone whichever way they prefer while
-    // troubleshooting connectivity.
-    SystemChrome.setPreferredOrientations(const [
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    // troubleshooting connectivity.  We apply the preference
+    // twice on purpose:
+    //   (1) synchronously here, and
+    //   (2) again in a post-frame callback so the outgoing
+    //       route's dispose() cannot silently re-lock us to
+    //       portrait (Navigator.pushReplacement runs the OLD
+    //       screen's dispose AFTER the new screen's initState).
+    _unlockRotation();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _unlockRotation());
 
     _pressCtrl = AnimationController(
       vsync: this,
@@ -44,6 +46,15 @@ class _TempestStageState extends State<TempestStage>
       value: 1.0,
     );
     _pressScale = _pressCtrl;
+  }
+
+  void _unlockRotation() {
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
   }
 
   @override
