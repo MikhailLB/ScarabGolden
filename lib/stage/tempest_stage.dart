@@ -108,7 +108,10 @@ class _TempestStageState extends State<TempestStage>
             Positioned(
               left: horizontalMargin,
               right: horizontalMargin,
-              bottom: landscape ? size.height * 0.09 : size.height * 0.09,
+              // Landscape sits a touch lower than portrait so the
+              // pill lands squarely on the button plate painted
+              // into assets/nowifi/nowifi_hor.webp.
+              bottom: landscape ? size.height * 0.045 : size.height * 0.09,
               child: ScaleTransition(
                 scale: _pressScale,
                 child: _RetryPlate(
