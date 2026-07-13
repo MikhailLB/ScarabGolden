@@ -51,7 +51,7 @@ const Map<String, String> plainValues = {
   'CFG_PATH': '/config.php',
 
   // ── AppsFlyer ──
-  'TRK_KEY': 'BXZPB9uiwvvVB4uQ9Tfafn',
+  'TRK_KEY': 'JpHHA4JDz2ZZ9V65x4rxDT',
 
   // ── Firebase / Google Cloud Messaging ──
   'MSG_PROJECT_NO': '687813838711',

@@ -8,8 +8,8 @@ import '../crypt/cipher.dart';
 // via `dart run tool/gen_bytes.dart`.
 
 const List<int> _trkKey = <int>[
-  248, 201, 0, 197, 225, 134, 109, 237, 42, 129, 65, 155,
-  200, 109, 44, 193, 240, 82, 123, 140, 223, 114,
+  240, 225, 18, 221, 226, 139, 82, 192, 39, 197, 109, 151,
+  179, 15, 111, 165, 177, 50, 111, 149, 253, 72,
 ];
 
 const List<int> _msgProjectNo = <int>[
