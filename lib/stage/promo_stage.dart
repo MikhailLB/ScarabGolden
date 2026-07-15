@@ -122,7 +122,7 @@ class _PromoStageState extends State<PromoStage> {
                   mainAxisSize: MainAxisSize.max,
                   children: [
                     SizedBox(
-                      width: size.width * 0.14,
+                      width: size.width * 0.17,
                       child: _GoldChip(
                         label: 'Accept',
                         onTap: _onAccept,
@@ -130,9 +130,9 @@ class _PromoStageState extends State<PromoStage> {
                         tight: true,
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 16),
                     SizedBox(
-                      width: size.width * 0.14,
+                      width: size.width * 0.17,
                       child: _GoldChip(
                         label: 'Skip',
                         onTap: _onSkip,
@@ -215,7 +215,7 @@ class _GoldChipState extends State<_GoldChip>
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 90),
             padding: EdgeInsets.symmetric(
-              vertical: widget.tight ? 9 : 12,
+              vertical: widget.tight ? 11 : 12,
               horizontal: 22,
             ),
             decoration: BoxDecoration(
@@ -251,7 +251,7 @@ class _GoldChipState extends State<_GoldChip>
                 widget.label,
                 style: TextStyle(
                   color: const Color(0xFF1A0A00),
-                  fontSize: widget.tight ? 14 : 17,
+                  fontSize: widget.tight ? 15 : 17,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.3,
                 ),
