@@ -106,23 +106,20 @@ class _PromoStageState extends State<PromoStage> {
                 ),
               )
             else
-              // Landscape: place Accept + Skip side-by-side on the
-              // baseline the previous Skip button occupied (that Y
-              // matches the button plates painted into
-              // assets/Notifications/notif_hor.webp).  Each chip is
-              // half its old width, so together they still occupy
-              // roughly the same footprint as the previous stacked
-              // column, but sit lower and out of the artwork.
+              // Landscape: Accept stacked over Skip, both centred so
+              // their width lines up with the marble plaque painted
+              // into assets/Notifications/notif_hor.webp (roughly the
+              // middle 24 % of the frame).
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: size.height * 0.07,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.max,
+                bottom: size.height * 0.05,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     SizedBox(
-                      width: size.width * 0.17,
+                      width: size.width * 0.24,
                       child: _GoldChip(
                         label: 'Accept',
                         onTap: _onAccept,
@@ -130,9 +127,9 @@ class _PromoStageState extends State<PromoStage> {
                         tight: true,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(height: 8),
                     SizedBox(
-                      width: size.width * 0.17,
+                      width: size.width * 0.24,
                       child: _GoldChip(
                         label: 'Skip',
                         onTap: _onSkip,
