@@ -86,36 +86,42 @@ class TrackerLink {
     _sdk = AppsflyerSdk(options);
 
     _sdk!.onInstallConversionData((data) async {
-      // The SDK may fire this callback multiple times per launch —
-      // once with the real payload, once with a failure blob when
-      // the AppsFlyer edge returns non-2xx.  Ignore anything that
-      // arrives after we already locked in a good verdict.
-      if (_installGate.isCompleted) return;
-
+      // The SDK may fire this callback multiple times per launch:
+      // once with a failure blob when the edge returns non-2xx,
+      // then again ~1-4 minutes later with the real payload on
+      // Realme / Xiaomi / other aggressive-background ROMs.
+      // Never early-return on `_installGate.isCompleted` — that
+      // would drop the late, correct verdict on the floor.
       final failed = _looksLikeFailure(data);
       final payload = _asMap(data);
       final status = payload['af_status']?.toString();
       final noStatus = status == null || status.isEmpty;
       final needsRetry = failed || noStatus || status == 'Organic';
 
+      Map<String, dynamic> next;
       if (needsRetry) {
         await Future<void>.delayed(
           Duration(seconds: AppFacade.gcdRetryDelaySeconds),
         );
         final retry = await _hitGcd();
-        // Prefer a good retry payload; otherwise keep the original
-        // payload only if it wasn't a failure blob.  Failure blobs
-        // must never bleed into the router body — they poison the
-        // backend's routing heuristics.
         if (retry != null && retry.isNotEmpty) {
-          _installPayload = retry;
+          next = retry;
         } else if (failed) {
-          _installPayload = <String, dynamic>{};
+          next = <String, dynamic>{};
         } else {
-          _installPayload = payload;
+          next = payload;
         }
       } else {
-        _installPayload = payload;
+        next = payload;
+      }
+
+      // Only overwrite an existing payload if the new one is at
+      // least as informative — otherwise a late failure blob would
+      // stomp on the good verdict we already have.
+      if (_installPayload == null ||
+          _installPayload!.isEmpty ||
+          _isBetter(next, _installPayload!)) {
+        _installPayload = next;
       }
       if (!_installGate.isCompleted) {
         _installGate.complete(_installPayload!);
@@ -164,6 +170,24 @@ class TrackerLink {
       return Map<String, dynamic>.from(data);
     } catch (_) {}
     return <String, dynamic>{};
+  }
+
+  bool _isBetter(Map<String, dynamic> incoming, Map<String, dynamic> current) {
+    bool useful(Map<String, dynamic> m) {
+      bool has(String k) {
+        final v = m[k]?.toString();
+        return v != null && v.isNotEmpty && v != 'null';
+      }
+      return has('af_status') ||
+          has('media_source') ||
+          has('campaign') ||
+          has('af_ad') ||
+          has('af_adset');
+    }
+    if (useful(incoming) && !useful(current)) return true;
+    if (!useful(incoming) && useful(current)) return false;
+    // Same "usefulness" — favour the longer payload, otherwise keep current.
+    return incoming.length > current.length;
   }
 
   bool _looksLikeFailure(dynamic data) {
