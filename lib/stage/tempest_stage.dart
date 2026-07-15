@@ -89,7 +89,7 @@ class _TempestStageState extends State<TempestStage>
     // edges without fighting the composition.  Portrait keeps
     // its previous proportions.
     final horizontalMargin =
-        landscape ? size.width * 0.30 : size.width * 0.10;
+        landscape ? size.width * 0.34 : size.width * 0.10;
     final buttonHeight = landscape ? 52.0 : 60.0;
 
     return Scaffold(
