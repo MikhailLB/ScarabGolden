@@ -1,7 +1,7 @@
 name: scarabgolden
 description: "Scarab Golden - Egyptian sliding puzzle game."
 publish_to: 'none'
-version: 1.0.1+3
+version: 1.0.1+4
 
 environment:
   sdk: ^3.12.2
@@ -36,6 +36,7 @@ dependencies:
   # collides with Flutter's built-in Kotlin support and breaks the
   # generated plugin registrant.
   file_picker: 8.1.4
+  clarity_flutter: ^1.9.0
 
 dev_dependencies:
   flutter_test:

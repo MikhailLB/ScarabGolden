@@ -1,16 +1,28 @@
 import 'package:flutter/material.dart';
 
+import '../bridge/insight.dart';
 import '../theme.dart';
 import '../widgets/menu_button.dart';
 import 'levels_screen.dart';
 import 'webview_screen.dart';
 
-class MenuScreen extends StatelessWidget {
+class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
 
+  @override
+  State<MenuScreen> createState() => _MenuScreenState();
+}
+
+class _MenuScreenState extends State<MenuScreen> {
   static const _privacyUrl =
       'https://scarabgolden.com/privacy-policy.html';
   static const _supportUrl = 'https://scarabgolden.com/support.html';
+
+  @override
+  void initState() {
+    super.initState();
+    Insight.screen('menu');
+  }
 
   @override
   Widget build(BuildContext context) {

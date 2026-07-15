@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../bridge/insight.dart';
 import '../models/puzzle_level.dart';
 import '../services/progress_service.dart';
 import '../theme.dart';
@@ -21,6 +22,7 @@ class _LevelsScreenState extends State<LevelsScreen> {
   @override
   void initState() {
     super.initState();
+    Insight.screen('levels');
     _load();
   }
 

@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../bridge/insight.dart';
 import '../models/puzzle_level.dart';
 import '../models/puzzle_state.dart';
 import '../services/progress_service.dart';
@@ -30,6 +31,8 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    Insight.screen('game');
+    Insight.tag('level', '${widget.level.index}');
     _startNewGame();
   }
 

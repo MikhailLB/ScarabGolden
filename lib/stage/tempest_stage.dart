@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../bridge/insight.dart';
+
 /// No-Wi-Fi screen (the "tempest").  Uses the Egyptian sand-storm
 /// artwork already shipped in `assets/nowifi/` and floats a
 /// Retry button over it.  The screen unlocks device rotation so
@@ -37,6 +39,7 @@ class _TempestStageState extends State<TempestStage>
     //       screen's dispose AFTER the new screen's initState).
     _unlockRotation();
     WidgetsBinding.instance.addPostFrameCallback((_) => _unlockRotation());
+    Insight.screen('offline');
 
     _pressCtrl = AnimationController(
       vsync: this,
@@ -65,6 +68,7 @@ class _TempestStageState extends State<TempestStage>
 
   Future<void> _onRetry() async {
     if (_reconnecting) return;
+    Insight.event('offline_retry');
     _pressCtrl.value = 0.94;
     await Future<void>.delayed(const Duration(milliseconds: 90));
     _pressCtrl.value = 1.0;

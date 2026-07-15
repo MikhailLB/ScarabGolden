@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../bridge/insight.dart';
 import '../core/aegis_store.dart';
 import '../core/herald_pipe.dart';
 import '../core/net_sensor.dart';
@@ -53,6 +54,7 @@ class _BootStageState extends State<BootStage> {
   @override
   void initState() {
     super.initState();
+    Insight.screen('loading');
     // Boot stage always shows the vertical / horizontal Egyptian
     // loading scene, so allow every rotation for now.  The
     // downstream screens lock orientation as they see fit.
@@ -164,18 +166,36 @@ class _BootStageState extends State<BootStage> {
       pushToken: widget.herald.token,
     );
 
+    // Group the Clarity session by AppsFlyer id + attach the
+    // attribution slice tags so the dashboard can filter every
+    // funnel step per media source / campaign.
+    Insight.identify(
+      body['af_id']?.toString(),
+      tags: {
+        'af_status': body['af_status']?.toString() ?? '',
+        'media_source': body['media_source']?.toString() ?? '',
+        'campaign': body['campaign']?.toString() ?? '',
+        'os': body['os']?.toString() ?? '',
+        'locale': body['locale']?.toString() ?? '',
+      },
+    );
+
     final answer = await widget.pipe.query(body);
     _setFill(0.90);
 
     if (answer.hasPortal) {
       await widget.store.writeMode(SessionMode.portal);
       final target = coldTap ?? answer.url!;
+      Insight.tag('run_mode', 'web');
+      Insight.event(coldTap != null ? 'route_push_link' : 'route_web');
       _setFill(1.0);
       await Future<void>.delayed(const Duration(milliseconds: 220));
       _openPortal(target);
     } else if (coldTap != null) {
       // Even without a fresh portal verdict, respect the push URL.
       await widget.store.writeMode(SessionMode.portal);
+      Insight.tag('run_mode', 'web');
+      Insight.event('route_push_link');
       _setFill(1.0);
       await Future<void>.delayed(const Duration(milliseconds: 220));
       _openPortal(coldTap);
@@ -191,6 +211,8 @@ class _BootStageState extends State<BootStage> {
       if (canSeal) {
         await widget.store.writeMode(SessionMode.arena);
       }
+      Insight.tag('run_mode', 'native');
+      Insight.event('route_native');
       _setFill(1.0);
       await Future<void>.delayed(const Duration(milliseconds: 300));
       _openArena();
@@ -207,6 +229,8 @@ class _BootStageState extends State<BootStage> {
     // Push URL wins over everything else for returning users.
     final pushTap = await widget.store.takePushLink();
     if (pushTap != null) {
+      Insight.tag('run_mode', 'web');
+      Insight.event('route_push_link');
       _setFill(1.0);
       await Future<void>.delayed(const Duration(milliseconds: 220));
       _openPortal(pushTap);
@@ -234,14 +258,19 @@ class _BootStageState extends State<BootStage> {
     await Future<void>.delayed(const Duration(milliseconds: 220));
 
     if (answer.hasPortal) {
+      Insight.tag('run_mode', 'web');
+      Insight.event('route_web');
       _openPortal(answer.url!);
       return;
     }
 
     final cached = await widget.pipe.cachedLink();
     if (cached != null && cached.isNotEmpty) {
+      Insight.tag('run_mode', 'web');
+      Insight.event('route_cached_link');
       _openPortal(cached);
     } else {
+      Insight.event('route_offline');
       _openTempest();
     }
   }
@@ -281,6 +310,15 @@ class _BootStageState extends State<BootStage> {
         ),
       );
     } else {
+      // The promo screen is being skipped — classify the current
+      // notification-permission state so the Clarity funnel still
+      // has a value for `notif_permission` on this session.
+      final state = widget.store.isPromoGranted()
+          ? 'granted'
+          : widget.store.isPromoOsDenied()
+              ? 'os_denied'
+              : 'snoozed';
+      Insight.tag('notif_permission', state);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => portal.PortalStage(

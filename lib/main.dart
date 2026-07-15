@@ -1,9 +1,11 @@
+import 'package:clarity_flutter/clarity_flutter.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'bridge/insight.dart';
 import 'core/aegis_store.dart';
 import 'core/device_agent.dart';
 import 'core/herald_pipe.dart';
@@ -54,12 +56,15 @@ Future<void> main() async {
   final pipe = PortalPipe(store);
   final herald = HeraldPipe(store);
 
-  runApp(ScarabGoldenApp(
-    store: store,
-    sensor: sensor,
-    tracker: tracker,
-    pipe: pipe,
-    herald: herald,
+  runApp(ClarityWidget(
+    clarityConfig: Insight.config,
+    app: ScarabGoldenApp(
+      store: store,
+      sensor: sensor,
+      tracker: tracker,
+      pipe: pipe,
+      herald: herald,
+    ),
   ));
 }
 

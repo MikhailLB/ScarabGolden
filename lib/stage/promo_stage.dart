@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../bridge/insight.dart';
 import '../core/aegis_store.dart';
 import '../core/herald_pipe.dart';
 import '../core/net_sensor.dart';
@@ -32,8 +33,17 @@ class PromoStage extends StatefulWidget {
 }
 
 class _PromoStageState extends State<PromoStage> {
+  @override
+  void initState() {
+    super.initState();
+    Insight.screen('push_invite');
+  }
+
   Future<void> _onAccept() async {
+    Insight.event('push_invite_accept');
     final granted = await widget.herald.askPermission();
+    Insight.tag('notif_permission', granted ? 'granted' : 'denied');
+    Insight.event(granted ? 'push_granted' : 'push_denied');
     if (!mounted) return;
     if (!granted) {
       final until = DateTime.now().millisecondsSinceEpoch ~/ 1000 +
@@ -44,6 +54,8 @@ class _PromoStageState extends State<PromoStage> {
   }
 
   Future<void> _onSkip() async {
+    Insight.event('push_invite_skip');
+    Insight.tag('notif_permission', 'skipped');
     final until = DateTime.now().millisecondsSinceEpoch ~/ 1000 +
         AppFacade.promoCooldownSeconds;
     await widget.store.writePromoSnooze(until);
