@@ -82,6 +82,19 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+
+    // AppsFlyer 6.x deliberately dropped play-services-ads-identifier
+    // from its transitive deps to keep the AAB slim.  Apps that want
+    // GAID-based attribution (and therefore af_status: Non-organic
+    // instead of always-Organic) have to pull the artifact in
+    // themselves — without it AdvertisingIdClient is missing from
+    // the release classpath, R8 prunes the reference, and every
+    // paid OneLink install lands in the arena.
+    implementation("com.google.android.gms:play-services-ads-identifier:18.2.0")
+    // Not strictly required, but AppsFlyer's install-referrer path
+    // uses the modern App Set ID surface when GAID is unavailable
+    // (e.g. children profiles, GPS-less ROMs).  Adds ~20 KB.
+    implementation("com.google.android.gms:play-services-appset:16.1.0")
 }
 
 flutter {
