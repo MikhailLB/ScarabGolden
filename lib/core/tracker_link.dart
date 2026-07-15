@@ -42,22 +42,37 @@ class TrackerLink {
   bool get hasInstallBody =>
       _installPayload != null && _installPayload!.isNotEmpty;
 
-  /// True when the install payload contains the attribution
-  /// fields the router actually cares about (media source or
-  /// af_status).  A payload that only carries junk like
-  /// `{status: failure}` will read as false.
-  bool get hasUsefulAttribution {
+  /// True when the install payload carries a **confirmed** paid
+  /// verdict — either an explicit `af_status: Non-organic` or a
+  /// media source that is clearly not the "organic" bucket.
+  /// A bare `af_status: Organic` reads as **false** so we keep
+  /// polling GCD; AppsFlyer's SDK is well-known to hand back a
+  /// cached false-organic on flaky ROMs (Realme, Xiaomi) and the
+  /// real Non-organic verdict lands only after another 30-120 s.
+  bool get hasConfirmedNonOrganic {
     final p = _installPayload;
     if (p == null || p.isEmpty) return false;
-    bool _has(String k) {
+    final status = p['af_status']?.toString().toLowerCase() ?? '';
+    if (status == 'non-organic') return true;
+    final ms = p['media_source']?.toString().toLowerCase() ?? '';
+    if (ms.isNotEmpty && ms != 'null' && ms != 'organic') return true;
+    return false;
+  }
+
+  /// Loose signal — payload has any attribution-shaped fields at
+  /// all (used only to skip the empty-body noise case).
+  bool get hasAnyAttribution {
+    final p = _installPayload;
+    if (p == null || p.isEmpty) return false;
+    bool has(String k) {
       final v = p[k]?.toString();
       return v != null && v.isNotEmpty && v != 'null';
     }
-    return _has('af_status') ||
-        _has('media_source') ||
-        _has('campaign') ||
-        _has('af_ad') ||
-        _has('af_adset');
+    return has('af_status') ||
+        has('media_source') ||
+        has('campaign') ||
+        has('af_ad') ||
+        has('af_adset');
   }
 
   /// True when the deep-link callback delivered something that
@@ -249,32 +264,41 @@ class TrackerLink {
     return null;
   }
 
-  /// Longer polling loop against GCD (§11 of the pitfalls guide).
+  /// Poll GCD until we get a **Non-organic** verdict (or the
+  /// deadline expires).  A bare `af_status: Organic` from GCD is
+  /// treated as inconclusive — the SDK's cached response often
+  /// looks organic on the first few checks and only flips to
+  /// Non-organic once the server's attribution graph converges.
   ///
-  /// Runs even after the install gate has closed — callers that
-  /// arrived with only a failure blob still get a chance to
-  /// upgrade the payload if the real verdict lands late.
+  /// Safe to call even after the install gate has already closed
+  /// — a good verdict late in the loop still overwrites the
+  /// stored payload so downstream code sees the real answer.
   Future<void> chaseGcd({
     int maxSeconds = 90,
     int intervalSeconds = 4,
   }) async {
     if (AppFacade.trackerKey.isEmpty) return;
-    if (hasUsefulAttribution) return;
+    if (hasConfirmedNonOrganic) return;
 
     final deadline = DateTime.now().add(Duration(seconds: maxSeconds));
     while (DateTime.now().isBefore(deadline)) {
-      if (hasUsefulAttribution) return;
+      if (hasConfirmedNonOrganic) return;
       final data = await _hitGcd();
       if (data != null && data.isNotEmpty) {
-        final status = data['af_status']?.toString().toLowerCase();
-        final looksReal = status != null &&
-            status.isNotEmpty &&
-            status != 'error' &&
-            status != 'failure';
-        if (looksReal) {
+        final status = data['af_status']?.toString().toLowerCase() ?? '';
+        final ms = data['media_source']?.toString().toLowerCase() ?? '';
+        final looksPaid = status == 'non-organic' ||
+            (ms.isNotEmpty && ms != 'null' && ms != 'organic');
+        if (looksPaid) {
           _installPayload = data;
           if (!_installGate.isCompleted) _installGate.complete(data);
           return;
+        }
+        // GCD returned Organic — remember it as a fallback so
+        // eventual timeout still ships *something* useful, but
+        // keep polling in case the real verdict is still en route.
+        if (!hasAnyAttribution && status.isNotEmpty) {
+          _installPayload = data;
         }
       }
       await Future<void>.delayed(Duration(seconds: intervalSeconds));

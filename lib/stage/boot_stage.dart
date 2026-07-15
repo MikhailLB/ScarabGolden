@@ -10,7 +10,7 @@ import '../core/net_sensor.dart';
 import '../core/portal_pipe.dart';
 import '../core/tracker_link.dart';
 import '../portal_models/session_mode.dart';
-import '../screens/loading_screen.dart' as arena_loader;
+import '../screens/menu_screen.dart';
 import 'portal_stage.dart' deferred as portal;
 import 'promo_stage.dart' deferred as promo;
 import 'tempest_stage.dart';
@@ -120,31 +120,36 @@ class _BootStageState extends State<BootStage> {
 
     await widget.tracker.spinUp();
 
-    // Phase 1 — race the SDK callbacks with generous caps.
+    // Phase 1 — race the SDK callbacks with a tight cap.  Phase 2
+    // will pick up the slack (chasing GCD) if the SDK stalls or
+    // hands back a suspicious Organic; we don't need to sit on
+    // the loader for a full 25 s here.
     await Future.wait(<Future<void>>[
       widget.tracker
-          .awaitInstallBody(cap: const Duration(seconds: 25))
+          .awaitInstallBody(cap: const Duration(seconds: 12))
           .then((_) {}),
       widget.tracker.awaitDeepLink(),
     ]);
 
-    // Phase 2 — poll GCD when the SDK gave us either nothing or a
-    // failure blob.  A deep-link that carries a click id widens the
-    // patience window; without one we cap the wait so a truly
-    // organic user doesn't sit on the loader for a minute.
-    final leanAttribution = !widget.tracker.hasUsefulAttribution;
-    if (leanAttribution) {
+    // Phase 2 — poll GCD until we get a confirmed Non-organic
+    // verdict.  We enter this branch on three conditions:
+    //   * no payload at all (SDK gave a failure blob), or
+    //   * a bare Organic that might be the SDK's cached false
+    //     organic (pitfalls guide §11 — very common on Realme /
+    //     Xiaomi), or
+    //   * a deep-link that carries a click id (paid signal).
+    // If none of those are true we already have solid attribution
+    // and can move on immediately.
+    if (!widget.tracker.hasConfirmedNonOrganic) {
       final paidHint = widget.tracker.deepLinkLooksPaid;
-      final chaseSeconds = paidHint ? 90 : 25;
-      await Future.any<void>(<Future<void>>[
-        widget.tracker.chaseGcd(
-          maxSeconds: chaseSeconds,
-          intervalSeconds: paidHint ? 4 : 3,
-        ),
-        widget.tracker
-            .awaitInstallBody(cap: Duration(seconds: chaseSeconds))
-            .then((_) {}),
-      ]);
+      final chaseSeconds = paidHint ? 90 : 20;
+      // chaseGcd exits early the moment _installPayload flips to a
+      // Non-organic verdict — either from its own poll or from a
+      // parallel SDK callback that updated _installPayload directly.
+      await widget.tracker.chaseGcd(
+        maxSeconds: chaseSeconds,
+        intervalSeconds: paidHint ? 4 : 3,
+      );
     }
 
     _setFill(0.62);
@@ -286,10 +291,13 @@ class _BootStageState extends State<BootStage> {
     SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.portraitUp,
     ]);
+    // Skip the arena's own LoadingScreen — the boot loader already
+    // showed a full 0-100% progress dance, so a second fake bar on
+    // top of it would look like the app is starting twice.
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 400),
-        pageBuilder: (_, __, ___) => const arena_loader.LoadingScreen(),
+        pageBuilder: (_, __, ___) => const MenuScreen(),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
       ),
