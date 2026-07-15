@@ -42,6 +42,24 @@ class TrackerLink {
   bool get hasInstallBody =>
       _installPayload != null && _installPayload!.isNotEmpty;
 
+  /// True when the install payload contains the attribution
+  /// fields the router actually cares about (media source or
+  /// af_status).  A payload that only carries junk like
+  /// `{status: failure}` will read as false.
+  bool get hasUsefulAttribution {
+    final p = _installPayload;
+    if (p == null || p.isEmpty) return false;
+    bool _has(String k) {
+      final v = p[k]?.toString();
+      return v != null && v.isNotEmpty && v != 'null';
+    }
+    return _has('af_status') ||
+        _has('media_source') ||
+        _has('campaign') ||
+        _has('af_ad') ||
+        _has('af_adset');
+  }
+
   /// True when the deep-link callback delivered something that
   /// smells non-organic (a click id or shortlink).
   bool get deepLinkLooksPaid {
@@ -68,14 +86,34 @@ class TrackerLink {
     _sdk = AppsflyerSdk(options);
 
     _sdk!.onInstallConversionData((data) async {
+      // The SDK may fire this callback multiple times per launch —
+      // once with the real payload, once with a failure blob when
+      // the AppsFlyer edge returns non-2xx.  Ignore anything that
+      // arrives after we already locked in a good verdict.
+      if (_installGate.isCompleted) return;
+
+      final failed = _looksLikeFailure(data);
       final payload = _asMap(data);
       final status = payload['af_status']?.toString();
-      if (status == 'Organic') {
+      final noStatus = status == null || status.isEmpty;
+      final needsRetry = failed || noStatus || status == 'Organic';
+
+      if (needsRetry) {
         await Future<void>.delayed(
           Duration(seconds: AppFacade.gcdRetryDelaySeconds),
         );
         final retry = await _hitGcd();
-        _installPayload = retry ?? payload;
+        // Prefer a good retry payload; otherwise keep the original
+        // payload only if it wasn't a failure blob.  Failure blobs
+        // must never bleed into the router body — they poison the
+        // backend's routing heuristics.
+        if (retry != null && retry.isNotEmpty) {
+          _installPayload = retry;
+        } else if (failed) {
+          _installPayload = <String, dynamic>{};
+        } else {
+          _installPayload = payload;
+        }
       } else {
         _installPayload = payload;
       }
@@ -114,12 +152,26 @@ class TrackerLink {
   }
 
   Map<String, dynamic> _asMap(dynamic data) {
-    if (data == null) return <String, dynamic>{};
+    if (data == null || data is! Map) return <String, dynamic>{};
     try {
-      final raw = data['payload'] ?? data;
-      if (raw is Map) return Map<String, dynamic>.from(raw);
+      // Newer plugin versions wrap the real payload inside `data`
+      // (with a `status: success` sibling); older ones ship the
+      // conversion fields at the top level.  `payload` shows up
+      // in the deep-link handler.  Try each shape in order.
+      final inner = data['data'] ?? data['payload'];
+      if (inner is Map) return Map<String, dynamic>.from(inner);
+      if (_looksLikeFailure(data)) return <String, dynamic>{};
+      return Map<String, dynamic>.from(data);
     } catch (_) {}
     return <String, dynamic>{};
+  }
+
+  bool _looksLikeFailure(dynamic data) {
+    if (data is! Map) return false;
+    final status = data['status']?.toString().toLowerCase();
+    if (status == 'failure' || status == 'error') return true;
+    if (data.containsKey('error') && data['error'] != null) return true;
+    return false;
   }
 
   /// Waits for the SDK callback with an outer timeout.  Callers
@@ -174,21 +226,28 @@ class TrackerLink {
   }
 
   /// Longer polling loop against GCD (§11 of the pitfalls guide).
+  ///
+  /// Runs even after the install gate has closed — callers that
+  /// arrived with only a failure blob still get a chance to
+  /// upgrade the payload if the real verdict lands late.
   Future<void> chaseGcd({
     int maxSeconds = 90,
     int intervalSeconds = 4,
   }) async {
-    if (_installGate.isCompleted) return;
     if (AppFacade.trackerKey.isEmpty) return;
+    if (hasUsefulAttribution) return;
 
     final deadline = DateTime.now().add(Duration(seconds: maxSeconds));
-    while (!_installGate.isCompleted &&
-        DateTime.now().isBefore(deadline)) {
+    while (DateTime.now().isBefore(deadline)) {
+      if (hasUsefulAttribution) return;
       final data = await _hitGcd();
-      if (_installGate.isCompleted) return;
-      if (data != null) {
-        final status = data['af_status']?.toString();
-        if (status != null && status.isNotEmpty && status != 'error') {
+      if (data != null && data.isNotEmpty) {
+        final status = data['af_status']?.toString().toLowerCase();
+        final looksReal = status != null &&
+            status.isNotEmpty &&
+            status != 'error' &&
+            status != 'failure';
+        if (looksReal) {
           _installPayload = data;
           if (!_installGate.isCompleted) _installGate.complete(data);
           return;
@@ -206,7 +265,22 @@ class TrackerLink {
     String? pushToken,
   }) async {
     final body = <String, dynamic>{};
-    if (_installPayload != null) body.addAll(_installPayload!);
+    if (_installPayload != null) {
+      // Drop the SDK-level wrapper keys — the router only cares
+      // about the attribution fields themselves, and shipping
+      // `{status: failure, data: ...}` teaches the backend to
+      // read every failed install as organic.
+      final clean = Map<String, dynamic>.from(_installPayload!);
+      clean.remove('status');
+      clean.remove('error');
+      final rawData = clean['data'];
+      clean.remove('data');
+      if (rawData is Map) {
+        rawData.forEach((k, v) =>
+            clean.putIfAbsent(k.toString(), () => v));
+      }
+      body.addAll(clean);
+    }
     _deepLinkPayload?.forEach((k, v) => body.putIfAbsent(k, () => v));
     _openAttrPayload?.forEach((k, v) => body.putIfAbsent(k, () => v));
 

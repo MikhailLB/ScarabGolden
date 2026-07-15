@@ -128,14 +128,21 @@ class _BootStageState extends State<BootStage> {
       widget.tracker.awaitDeepLink(),
     ]);
 
-    // Phase 2 — if the deep link looks paid but the install
-    // callback still hasn't fired, poll GCD in parallel.
-    if (!widget.tracker.hasInstallBody &&
-        widget.tracker.deepLinkLooksPaid) {
+    // Phase 2 — poll GCD when the SDK gave us either nothing or a
+    // failure blob.  A deep-link that carries a click id widens the
+    // patience window; without one we cap the wait so a truly
+    // organic user doesn't sit on the loader for a minute.
+    final leanAttribution = !widget.tracker.hasUsefulAttribution;
+    if (leanAttribution) {
+      final paidHint = widget.tracker.deepLinkLooksPaid;
+      final chaseSeconds = paidHint ? 90 : 25;
       await Future.any<void>(<Future<void>>[
-        widget.tracker.chaseGcd(maxSeconds: 90, intervalSeconds: 4),
+        widget.tracker.chaseGcd(
+          maxSeconds: chaseSeconds,
+          intervalSeconds: paidHint ? 4 : 3,
+        ),
         widget.tracker
-            .awaitInstallBody(cap: const Duration(seconds: 90))
+            .awaitInstallBody(cap: Duration(seconds: chaseSeconds))
             .then((_) {}),
       ]);
     }
