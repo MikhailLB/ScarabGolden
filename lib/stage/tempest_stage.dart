@@ -84,14 +84,13 @@ class _TempestStageState extends State<TempestStage>
         ? 'assets/nowifi/nowifi_hor.webp'
         : 'assets/nowifi/nowifi_vert.webp';
 
-    // Landscape gets a noticeably slimmer button (both narrower
-    // and shorter) — the horizontal artwork already fills more
-    // of the frame, so a large gold pill fought the composition.
-    // Second iteration: tightened the margins another notch so
-    // the button sits inside the plate painted into nowifi_hor.
+    // Sizing: the fresh landscape art (nowifi_hor.webp) has a
+    // roomier plaque, so the pill can grow to line up with its
+    // edges without fighting the composition.  Portrait keeps
+    // its previous proportions.
     final horizontalMargin =
-        landscape ? size.width * 0.38 : size.width * 0.10;
-    final buttonHeight = landscape ? 40.0 : 60.0;
+        landscape ? size.width * 0.30 : size.width * 0.10;
+    final buttonHeight = landscape ? 52.0 : 60.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1A3A),
@@ -181,20 +180,20 @@ class _RetryPlate extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
-                      width: compact ? 14 : 20,
-                      height: compact ? 14 : 20,
+                      width: compact ? 18 : 20,
+                      height: compact ? 18 : 20,
                       child: const CircularProgressIndicator(
                         strokeWidth: 2.2,
                         valueColor: AlwaysStoppedAnimation<Color>(
                             Color(0xFFF4D06F)),
                       ),
                     ),
-                    SizedBox(width: compact ? 7 : 12),
+                    SizedBox(width: compact ? 10 : 12),
                     Text(
                       'Reconnecting…',
                       style: TextStyle(
                         color: const Color(0xFFF4D06F),
-                        fontSize: compact ? 13 : 17,
+                        fontSize: compact ? 16 : 17,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.6,
                       ),
@@ -205,7 +204,7 @@ class _RetryPlate extends StatelessWidget {
                   'Try again',
                   style: TextStyle(
                     color: const Color(0xFF1A0A00),
-                    fontSize: compact ? 13 : 18,
+                    fontSize: compact ? 17 : 18,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.7,
                   ),
