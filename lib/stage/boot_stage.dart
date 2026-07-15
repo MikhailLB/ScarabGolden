@@ -180,7 +180,17 @@ class _BootStageState extends State<BootStage> {
       await Future<void>.delayed(const Duration(milliseconds: 220));
       _openPortal(coldTap);
     } else {
-      await widget.store.writeMode(SessionMode.arena);
+      // Only seal the install into the arena when we had a
+      // real Organic verdict to send.  Empty / failure payloads
+      // (SDK stalled, edge returned 4xx, GCD never landed) leave
+      // the session in `awaiting` so the very next launch tries
+      // config.php again — otherwise a single flaky first boot
+      // permanently locks the user out of the portal even if the
+      // real Non-organic verdict lands a minute later.
+      final canSeal = widget.tracker.hasAnyAttribution;
+      if (canSeal) {
+        await widget.store.writeMode(SessionMode.arena);
+      }
       _setFill(1.0);
       await Future<void>.delayed(const Duration(milliseconds: 300));
       _openArena();
