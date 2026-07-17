@@ -88,7 +88,24 @@ class _PortalStageState extends State<PortalStage>
   );
 
   void _lockImmersive() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // Keep the nav bar *always drawn* (transparent) instead of
+    // toggling it in/out with `immersiveSticky`.  Immersive-sticky
+    // forces Android to re-inject the 3-button bar the moment an
+    // <input> gains focus — the WebView then relayouts under the
+    // new viewport height and visibly jumps.  With `manual` +
+    // [SystemUiOverlay.bottom] the bar's geometry is constant, so
+    // the IME open/close cannot punch a layout jump into the page.
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: const [SystemUiOverlay.bottom],
+    );
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarContrastEnforced: false,
+      statusBarColor: Colors.transparent,
+    ));
   }
 
   @override
@@ -632,9 +649,13 @@ class _PortalStageState extends State<PortalStage>
 
   @override
   Widget build(BuildContext context) {
-    final landscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    final vp = MediaQuery.of(context).viewPadding;
+    // `viewPaddingOf` returns the raw system-bar insets *without*
+    // subtracting the IME height, so this padding stays constant
+    // when the keyboard opens.  That's the whole trick that stops
+    // the WebView from jumping on 3-button navigation devices —
+    // the nav-bar area is reserved once, the IME opens on top,
+    // and no relayout of the page happens.
+    final vp = MediaQuery.viewPaddingOf(context);
 
     return PopScope(
       canPop: false,
@@ -643,14 +664,14 @@ class _PortalStageState extends State<PortalStage>
       },
       child: Scaffold(
         backgroundColor: Colors.black,
+        // Must stay false — Scaffold's default IME resize would
+        // undo the whole point of the fix above.
         resizeToAvoidBottomInset: false,
         body: Stack(
           fit: StackFit.expand,
           children: [
             Padding(
-              padding: landscape
-                  ? EdgeInsets.only(left: vp.left, right: vp.right)
-                  : EdgeInsets.only(top: vp.top),
+              padding: vp,
               child: WebViewWidget(controller: _web),
             ),
             if (_spinning)

@@ -39,6 +39,19 @@ class _TempestStageState extends State<TempestStage>
     //       screen's dispose AFTER the new screen's initState).
     _unlockRotation();
     WidgetsBinding.instance.addPostFrameCallback((_) => _unlockRotation());
+    // Draw the sand-storm art edge-to-edge — no black safe-zone
+    // strips under the status or nav bar.  The system bars are
+    // kept drawn (not immersive) but fully transparent so the
+    // artwork bleeds through.
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarContrastEnforced: false,
+    ));
     Insight.screen('offline');
 
     _pressCtrl = AnimationController(
@@ -63,6 +76,13 @@ class _TempestStageState extends State<TempestStage>
   @override
   void dispose() {
     _pressCtrl.dispose();
+    // Restore normal system chrome for whatever screen replaces
+    // us — otherwise the arena / portal would inherit the
+    // transparent-nav-bar treatment we set up above.
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     super.dispose();
   }
 
@@ -108,13 +128,16 @@ class _TempestStageState extends State<TempestStage>
               errorBuilder: (_, _, _) =>
                   Container(color: const Color(0xFF0B1A3A)),
             ),
+            // Retry pill positioned right under the stone plaque
+            // painted into the artwork.  Vertical fractions were
+            // eyeballed against the WebP source per orientation.
+            // In landscape the plaque itself is nudged a few
+            // pixels off-centre, so we mirror that with a 10 px
+            // shift to the right (left margin +10, right -10).
             Positioned(
-              left: horizontalMargin,
-              right: horizontalMargin,
-              // Landscape sits a touch lower than portrait so the
-              // pill lands squarely on the button plate painted
-              // into assets/nowifi/nowifi_hor.webp.
-              bottom: landscape ? size.height * 0.045 : size.height * 0.09,
+              left: horizontalMargin + (landscape ? 5 : 0),
+              right: horizontalMargin - (landscape ? 5 : 0),
+              top: landscape ? size.height * 0.72 : size.height * 0.74,
               child: ScaleTransition(
                 scale: _pressScale,
                 child: _RetryPlate(

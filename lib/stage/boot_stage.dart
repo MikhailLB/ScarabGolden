@@ -87,13 +87,18 @@ class _BootStageState extends State<BootStage> {
 
   Future<void> _kickOff() async {
     widget.herald.onTokenRotate = _onPushTokenRotate;
-    await widget.herald.spinUp().catchError((_) {});
+    // Fire-and-forget Firebase/FCM init — it does up to 3.5s of
+    // token back-off which used to serialise in front of every
+    // other boot step.  The router body sends whatever token has
+    // arrived by the time we assemble it; if it lands late,
+    // `onTokenRotate` will fire another POST from the background.
+    final heraldReady = widget.herald.spinUp().catchError((_) {});
     _setFill(0.10);
 
     final mode = widget.store.readMode();
     switch (mode) {
       case SessionMode.portal:
-        await _routeReturningPortal();
+        await _routeReturningPortal(heraldReady);
         break;
       case SessionMode.arena:
         // Sealed as arena — always keep them on the game.
@@ -104,7 +109,7 @@ class _BootStageState extends State<BootStage> {
         _openArena();
         break;
       case SessionMode.awaiting:
-        await _routeFirstLaunch();
+        await _routeFirstLaunch(heraldReady);
         break;
     }
   }
@@ -112,49 +117,73 @@ class _BootStageState extends State<BootStage> {
   // ── Cold-tap push URL: consume BEFORE the mode switch ─────
   // Handled inside the two "route" methods below.
 
-  Future<void> _routeFirstLaunch() async {
-    final live = await widget.sensor.hasReachability();
+  Future<void> _routeFirstLaunch(Future<void> heraldReady) async {
+    // Kick reachability + tracker spin-up in parallel — the DNS
+    // probe can take up to 7 s on a slow tunnel and there is no
+    // reason to make the SDK init sit behind it.
+    final reachFuture = widget.sensor.hasReachability();
+    final trackerReady = widget.tracker.spinUp();
+    _setFill(0.28);
+
+    final live = await reachFuture;
     if (!live) {
       _openTempest();
       return;
     }
-    _setFill(0.28);
+    await trackerReady;
 
-    await widget.tracker.spinUp();
-
-    // Phase 1 — race the SDK callbacks with a tight cap.  Phase 2
-    // will pick up the slack (chasing GCD) if the SDK stalls or
-    // hands back a suspicious Organic; we don't need to sit on
-    // the loader for a full 25 s here.
-    await Future.wait(<Future<void>>[
-      widget.tracker
-          .awaitInstallBody(cap: const Duration(seconds: 12))
-          .then((_) {}),
-      widget.tracker.awaitDeepLink(),
+    // Phase 1 — race the SDK callbacks.  The deep-link callback
+    // fires within ~1-3 s of an AppsFlyer OneLink click, which
+    // is our fastest way to know the install is paid.  We wait
+    // for whichever completes first.
+    await Future.any(<Future<void>>[
+      widget.tracker.awaitInstallBody(cap: const Duration(seconds: 10)).then((_) {}),
+      widget.tracker.awaitDeepLink(cap: const Duration(seconds: 10)),
     ]);
 
-    // Phase 2 — poll GCD until we get a confirmed Non-organic
-    // verdict.  We enter this branch on three conditions:
-    //   * no payload at all (SDK gave a failure blob), or
-    //   * a bare Organic that might be the SDK's cached false
-    //     organic (pitfalls guide §11 — very common on Realme /
-    //     Xiaomi), or
-    //   * a deep-link that carries a click id (paid signal).
-    // If none of those are true we already have solid attribution
-    // and can move on immediately.
+    // We now need the install body to give us `af_status`, or the
+    // router treats the POST as unattributed and drops us into
+    // the arena.  Even in the deep-link branch we must wait long
+    // enough for the SDK to converge:
+    //
+    //   * `onInstallConversionData` fires with `af_status: Organic`
+    //     first on Realme / Xiaomi (empty GAID).
+    //   * The callback's own GCD retry (5 s delay + up to 10 s
+    //     HTTP hit) is what flips the verdict to Non-organic.
+    //   * `_installGate` only closes AFTER that retry — so any
+    //     cap below ~15 s ships an incomplete POST.
+    //
+    // The gate exits early the instant the payload lands, so this
+    // is a *cap*, not a floor — happy path is still 3-8 s.
+    await widget.tracker
+        .awaitInstallBody(cap: const Duration(seconds: 15))
+        .then((_) {});
+
+    // Safety net when the callback path never converges (dead
+    // Play Services, ROM-blocked SDK, GCD hit that itself timed
+    // out inside the callback).  Skipped whenever we already
+    // have a confirmed Non-organic verdict in hand, so the fast
+    // path never pays for it.
     if (!widget.tracker.hasConfirmedNonOrganic) {
+      // A paid deep-link click is a strong hint that we should
+      // wait a bit longer for the verdict — but nowhere near the
+      // old 90 s cap.  20 s covers two more GCD polls, which is
+      // enough for the backend graph to converge on ~99% of
+      // late-attribution installs.
       final paidHint = widget.tracker.deepLinkLooksPaid;
-      final chaseSeconds = paidHint ? 90 : 20;
-      // chaseGcd exits early the moment _installPayload flips to a
-      // Non-organic verdict — either from its own poll or from a
-      // parallel SDK callback that updated _installPayload directly.
       await widget.tracker.chaseGcd(
-        maxSeconds: chaseSeconds,
-        intervalSeconds: paidHint ? 4 : 3,
+        maxSeconds: paidHint ? 20 : 15,
+        intervalSeconds: 3,
       );
     }
 
     _setFill(0.62);
+
+    // Make sure Firebase / FCM finished spinning up before we
+    // read the cold-tap push link and assemble the request body
+    // — otherwise `store.takePushLink()` might miss a legitimate
+    // cold notification tap and `pushToken` would be null.
+    await heraldReady;
 
     // Cold-tap push URL — take it before we decide the mode so
     // paid users still land on the notification link (§12).
@@ -219,12 +248,23 @@ class _BootStageState extends State<BootStage> {
     }
   }
 
-  Future<void> _routeReturningPortal() async {
-    final live = await widget.sensor.hasReachability();
+  Future<void> _routeReturningPortal(Future<void> heraldReady) async {
+    // Reachability + tracker init in parallel with herald spin-up
+    // (which is already in flight).  A returning-portal boot has
+    // no attribution to resolve, so the whole dance should be
+    // over as soon as we know the network is up and the request
+    // body is assembled.
+    final reachFuture = widget.sensor.hasReachability();
+    final trackerReady = widget.tracker.spinUp();
+
+    final live = await reachFuture;
     if (!live) {
       _openTempest();
       return;
     }
+
+    // Make sure the cold-tap push URL landed before we read it.
+    await heraldReady;
 
     // Push URL wins over everything else for returning users.
     final pushTap = await widget.store.takePushLink();
@@ -238,12 +278,15 @@ class _BootStageState extends State<BootStage> {
     }
 
     _setFill(0.35);
-    await widget.tracker.spinUp();
-    await Future.wait(<Future<void>>[
-      widget.tracker
-          .awaitInstallBody(cap: const Duration(seconds: 10))
-          .then((_) {}),
-      widget.tracker.awaitDeepLink(),
+    await trackerReady;
+    // Race the two callbacks — as soon as either lands we have
+    // enough to assemble a fresh body.  A tight 6 s cap avoids
+    // making returning users wait for late SDK payloads (the
+    // backend already has their attribution from the very first
+    // launch's POST).
+    await Future.any(<Future<void>>[
+      widget.tracker.awaitInstallBody(cap: const Duration(seconds: 6)).then((_) {}),
+      widget.tracker.awaitDeepLink(cap: const Duration(seconds: 6)),
     ]);
 
     _setFill(0.7);
